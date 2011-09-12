@@ -1,4 +1,3 @@
-
 (* pipelining *)
 let ( |> ) x f = f x
 let ( <| ) f x = f x
@@ -19,6 +18,28 @@ let double x = (x, x)
 (* combinators *)
 let k_comb x _y = x
 let s_comb x y z = x z (y z);;
+
+(* shortcuts for some of the Binary functions. *)
+let pack_int32 n =
+  let buf = String.create 4 in begin
+    Binary.LE.pack_signed_32 ~buf ~pos:0 n;
+    buf
+  end
+and unpack_int32 buf = Binary.LE.unpack_signed_32 ~buf ~pos:0
+
+let pack_int64 v =
+  let buf = String.create 8 in begin
+    Binary.LE.pack_signed_64 ~buf ~pos:0 v;
+    buf
+  end
+and unpack_int64 buf = Binary.LE.unpack_signed_64 ~buf ~pos:0
+
+let pack_float f =
+  let buf = String.create 8 in begin
+    Binary.LE.pack_float ~buf ~pos:0 f;
+    buf
+  end
+and unpack_float buf = Binary.LE.unpack_float ~buf ~pos:0
 
 
 module ExStream = struct
@@ -104,5 +125,3 @@ external t_of_buffer : buffer -> Buffer.t = "%identity";;
 let buffer_change_substring buf pos str =
   let b = buffer_of_t buf in
   String.blit str 0 b.buffer pos (String.length str)
-
-

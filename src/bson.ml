@@ -1,7 +1,6 @@
 open CalendarLib
 
 open Util
-open Binary
 
 module ES = ExStream
 module S = Stream
