@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 1b54e058d78a685c35e51187975dd7cd) *)
+(* DO NOT EDIT (digest: deed24f7ce4b4707a527ae44155a3c65) *)
 This is the INSTALL file for the cobson distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -13,7 +13,7 @@ In order to compile this package, you will need:
 * findlib
 * binary
 * calendar
-* quickcheck for executable test
+* kaputt for executable test
 
 Installing
 ==========
