@@ -12,6 +12,19 @@ Flag tests
   Description: Build tests
   Default: true
 
+Library pa_bson
+  Path:               syntax
+  Modules:            Pa_bson
+  FindlibParent:      cobson
+  FindlibName:        syntax
+  BuildDepends:       camlp4.lib,
+                      camlp4.quotations,
+                      type-conv (>= 2.0.1)
+  CompiledObject:     byte
+  XMETAType:          syntax
+  XMETARequires:      camlp4,type-conv,fieldslib
+  XMETADescription:   Syntax extension for Cobson
+
 Library cobson
   Path:            src
   Modules:         Bson
@@ -27,6 +40,15 @@ Executable test
   Install:         false
   CompiledObject:  best
   BuildDepends:    kaputt, binary, calendar
+  NativeOpt:       -w @a -g
+  ByteOpt:         -w @a -g
+
+Executable hello
+  Path:            examples/
+  MainIs:          world.ml
+  Install:         false
+  CompiledObject:  best
+  BuildDepends:    cobson, cobson.syntax, binary, calendar
   NativeOpt:       -w @a -g
   ByteOpt:         -w @a -g
 

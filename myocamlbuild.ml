@@ -1,7 +1,7 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0b51e595df339c0f971c662f6840826e) *)
+(* DO NOT EDIT (digest: a2fb74f20eba543f67f3eec77c3fbb92) *)
 module OASISGettext = struct
-# 21 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/oasis/OASISGettext.ml"
+# 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/oasis/OASISGettext.ml"
   
   let ns_ str =
     str
@@ -24,7 +24,7 @@ module OASISGettext = struct
 end
 
 module OASISExpr = struct
-# 21 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/oasis/OASISExpr.ml"
+# 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/oasis/OASISExpr.ml"
   
   
   
@@ -115,7 +115,7 @@ end
 
 
 module BaseEnvLight = struct
-# 21 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/base/BaseEnvLight.ml"
+# 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/base/BaseEnvLight.ml"
   
   module MapString = Map.Make(String)
   
@@ -212,7 +212,7 @@ end
 
 
 module MyOCamlbuildFindlib = struct
-# 21 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml"
+# 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/plugins/ocamlbuild/MyOCamlbuildFindlib.ml"
   
   (** OCamlbuild extension, copied from 
     * http://brion.inria.fr/gallium/index.php/Using_ocamlfind_with_ocamlbuild
@@ -321,7 +321,7 @@ module MyOCamlbuildFindlib = struct
 end
 
 module MyOCamlbuildBase = struct
-# 21 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
+# 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
   
   (** Base functions for writing myocamlbuild.ml
       @author Sylvain Le Gall
@@ -336,7 +336,7 @@ module MyOCamlbuildBase = struct
   type name = string 
   type tag = string 
   
-# 55 "/tmp/packerbuild-1000/ocaml-oasis-darcs/ocaml-oasis-darcs/src/oasis-build/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
+# 55 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
   
   type t =
       {
@@ -452,7 +452,8 @@ end
 open Ocamlbuild_plugin;;
 let package_default =
   {
-     MyOCamlbuildBase.lib_ocaml = [("src/cobson", ["src"])];
+     MyOCamlbuildBase.lib_ocaml =
+       [("syntax/pa_bson", ["syntax"]); ("src/cobson", ["src"])];
      lib_c = [];
      flags =
        [
@@ -468,6 +469,18 @@ let package_default =
             [(OASISExpr.EBool true, S [A "-w"; A "@a"])]);
           (["oasis_library_cobson_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-w"; A "@a"])]);
+          (["oasis_executable_hello_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
+          (["oasis_executable_hello_native"; "ocaml"; "link"; "native"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
+          (["oasis_executable_hello_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
+          (["oasis_executable_hello_native"; "ocaml"; "ocamldep"; "native"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
+          (["oasis_executable_hello_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
+          (["oasis_executable_hello_native"; "ocaml"; "compile"; "native"],
+            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
           (["oasis_executable_test_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
           (["oasis_executable_test_native"; "ocaml"; "link"; "native"],
@@ -486,6 +499,5 @@ let package_default =
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 490 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
