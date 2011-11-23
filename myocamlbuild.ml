@@ -488,4 +488,9 @@ let package_default =
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
 (* OASIS_STOP *)
+
+flag ["ocaml";"ocamldep";"use_pa_bson"] & S[A"-ppopt";A"syntax/pa_bson.cma"];;
+flag ["ocaml";"compile";"use_pa_bson"] & S[A"-ppopt";A"syntax/pa_bson.cma"];;
+flag ["ocaml";"infer_interface";"use_pa_bson"] & S[A"-ppopt";A"syntax/pa_bson.cma"];;
+
 Ocamlbuild_plugin.dispatch dispatch_default;;
