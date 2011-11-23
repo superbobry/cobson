@@ -19,7 +19,7 @@ Library pa_bson
   FindlibName:        syntax
   BuildDepends:       camlp4.lib,
                       camlp4.quotations,
-                      type-conv (>= 3.0.4)
+                      type-conv (>= 3.0.3)
   CompiledObject:     byte
   XMETAType:          syntax
   XMETARequires:      camlp4, type-conv
@@ -34,7 +34,7 @@ Library cobson
   ByteOpt:         -w @a
 
 Executable test
-  Path:            tests/
+  Path:            tests
   MainIs:          tests.ml
   Build$:          flag(tests)
   Install:         false
@@ -44,7 +44,7 @@ Executable test
   ByteOpt:         -w @a -g
 
 Executable hello
-  Path:            examples/
+  Path:            examples
   MainIs:          world.ml
   Install:         false
   CompiledObject:  best
