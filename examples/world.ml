@@ -1,10 +1,9 @@
 (** A simple Cobson usage example. *)
 
-open Bson
-
 type t = {
-  s : string;
-  mutable s_m : string;
-  f : float;
-  mutable f_m : float;
+  foo : string;
+  bar : float;
+  egg : int32;
+  ham : int64;
+  boo : bool
 } with bson

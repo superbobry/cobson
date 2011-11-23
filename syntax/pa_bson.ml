@@ -19,20 +19,36 @@ end
 module Gen_bson_of = struct
   let bson_of_record ~type_name _loc ty =
     let aux (name, field_ty) =
+      (* TODO: does mutability make any difference? *)
       let bson_ty = match field_ty with
-        | string -> Bson.String
-        | float  -> Bson.Float
+        | <:ctyp< string >> ->
+          <:expr< Bson.String $lid:name$ >>
+        | <:ctyp< float >>  ->
+          <:expr< Bson.Float $lid:name$ >>
+        | <:ctyp< int32 >>  ->
+          <:expr< Bson.Int32 $lid:name$ >>
+        | <:ctyp< int64 >>  ->
+          <:expr< Bson.Int64 $lid:name$ >>
+        | <:ctyp< bool >>   ->
+          <:expr< Bson.Boolean $lid:name$ >>
         | _ -> assert false
-      in <:expr< ($str:name$, $bson_ty$ $lid:name$) >>
+      in <:expr< ($str:name$, $bson_ty$) >>
     in
 
-    Gen.mk_expr_lst _loc (List.map aux (Inspect.fields ty))
+    let fields = Inspect.fields ty in
+    let fun_body = Gen.mk_expr_lst _loc (List.map aux fields)
+    and fun_args = List.map
+      (fun (n, _) -> <:patt< $lid:n$ = $lid:n$ >>)
+      fields
+    in
+
+    <:expr< fun [ { $list:fun_args$ } -> Bson.encode $fun_body$ ] >>
   ;;
 
   (* Generate code from type definition. *)
   let bson_of_td loc ~type_name ~tps ~rhs =
     let unsupported = (fun _ _ -> raise_unsupported ()) in
-    let body = Gen.switch_tp_def
+    let fun_body = Gen.switch_tp_def
       ~alias:    unsupported
       ~sum:      unsupported
       ~variants: unsupported
@@ -40,15 +56,10 @@ module Gen_bson_of = struct
       ~nil:      (fun _ -> raise_unsupported ())
       ~record:   (bson_of_record ~type_name)
       rhs
+    and fun_name = <:patt@loc< $lid:"bson_of_" ^ type_name$ >>
     in
 
-    let patts =
-      List.map
-        (fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
-        tps
-    in
-    let bnd = <:patt@loc< $lid:"bson_of_" ^ type_name$ >> in
-    <:binding@loc< $bnd$ = $Gen.abstract loc patts body$ >>
+    <:binding@loc< $fun_name$ = $fun_body$ >>
 
   let generate tds = match tds with
     | Ast.TyDcl (_loc, name, tps, rhs, _) ->
