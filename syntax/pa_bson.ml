@@ -6,24 +6,33 @@ let raise_unsupported () =
   failwith "Unsupported use of bson (you can only use it on records)."
 
 
+module Inspect = struct
+  let field = function
+    | <:ctyp< $lid:name$ : mutable $field_ty$ >>
+    | <:ctyp< $lid:name$ : $field_ty$ >> -> (name, field_ty)
+    | _ -> assert false
+
+  let fields ty = List.map field (Ast.list_of_ctyp ty [])
+end
+
+
 module Gen_bson_of = struct
   let bson_of_record ~type_name _loc ty =
-    let fields = Ast.list_of_ctyp ty [] in
-    let aux = function
-      | <:ctyp@loc< $lid:name$ : string >> ->
-        <:expr@loc< ($str:name$, Bson.String $lid:name$) >>
-      | _ -> assert false
+    let aux (name, field_ty) =
+      let bson_ty = match field_ty with
+        | string -> Bson.String
+        | float  -> Bson.Float
+        | _ -> assert false
+      in <:expr< ($str:name$, $bson_ty$ $lid:name$) >>
     in
 
-    let loc = Ast.loc_of_ctyp ty in
-    let foo = List.map aux fields in
-      <:expr@loc< $foo$ >>, loc
+    Gen.mk_expr_lst _loc (List.map aux (Inspect.fields ty))
   ;;
 
   (* Generate code from type definition. *)
   let bson_of_td loc ~type_name ~tps ~rhs =
     let unsupported = (fun _ _ -> raise_unsupported ()) in
-    Gen.switch_tp_def
+    let body = Gen.switch_tp_def
       ~alias:    unsupported
       ~sum:      unsupported
       ~variants: unsupported
@@ -31,17 +40,21 @@ module Gen_bson_of = struct
       ~nil:      (fun _ -> raise_unsupported ())
       ~record:   (bson_of_record ~type_name)
       rhs
-
-  let generate tds =
-    let (binding, _loc) = match tds with
-      | Ast.TyDcl (loc, name, tps, rhs, _) -> bson_of_td loc ~type_name:name ~tps ~rhs
-      | Ast.TyAnd (_loc, _, _) as tds ->
-          ignore (_loc, tds);
-          failwith "Not supported"
-      | _ -> assert false
     in
 
-      List.fold_right (fun x l -> <:expr< [$x$ :: $l$] >>) binding <:expr< [] >>
+    let patts =
+      List.map
+        (fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
+        tps
+    in
+    let bnd = <:patt@loc< $lid:"bson_of_" ^ type_name$ >> in
+    <:binding@loc< $bnd$ = $Gen.abstract loc patts body$ >>
+
+  let generate tds = match tds with
+    | Ast.TyDcl (_loc, name, tps, rhs, _) ->
+      bson_of_td _loc ~type_name:name ~tps ~rhs
+    | Ast.TyAnd (_loc, _, _) -> raise_unsupported ()
+    | _ -> assert false
 end
 
 
@@ -50,6 +63,4 @@ let () =
     "bson"
     (fun tds ->
        let loc = Ast.loc_of_ctyp tds in
-       let foo = Gen_bson_of.generate tds in
-         <:str_item@loc< value x = $foo$ >>
-    )
+       <:str_item@loc< value $Gen_bson_of.generate tds$ >>)
