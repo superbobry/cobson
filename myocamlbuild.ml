@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: a2fb74f20eba543f67f3eec77c3fbb92) *)
+(* DO NOT EDIT (digest: a29f6432f3a0552556f69980ec1861d4) *)
 module OASISGettext = struct
 # 21 "/Users/bobry/.odb/install-oasis/oasis-0.2.1~alpha1/src/oasis/OASISGettext.ml"
   
@@ -469,18 +469,6 @@ let package_default =
             [(OASISExpr.EBool true, S [A "-w"; A "@a"])]);
           (["oasis_library_cobson_native"; "ocaml"; "compile"; "native"],
             [(OASISExpr.EBool true, S [A "-w"; A "@a"])]);
-          (["oasis_executable_hello_byte"; "ocaml"; "link"; "byte"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
-          (["oasis_executable_hello_native"; "ocaml"; "link"; "native"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
-          (["oasis_executable_hello_byte"; "ocaml"; "ocamldep"; "byte"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
-          (["oasis_executable_hello_native"; "ocaml"; "ocamldep"; "native"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
-          (["oasis_executable_hello_byte"; "ocaml"; "compile"; "byte"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
-          (["oasis_executable_hello_native"; "ocaml"; "compile"; "native"],
-            [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
           (["oasis_executable_test_byte"; "ocaml"; "link"; "byte"],
             [(OASISExpr.EBool true, S [A "-w"; A "@a"; A "-g"])]);
           (["oasis_executable_test_native"; "ocaml"; "link"; "native"],

@@ -8,8 +8,7 @@ let raise_unsupported () =
 module Gen_struct = struct
   let record ~record_name _loc ty =
     <:str_item<
-      module Fields = struct
-      end
+      open Bson
     >>
   ;;
 
@@ -19,7 +18,7 @@ module Gen_struct = struct
       record ~record_name loc x
     | _ -> failwith "the right hand side of the manifest must be a record"
 
-  let fields_of_ty _loc ~record_name ~tps:_ ~rhs =
+  let bson_of_ty _loc ~record_name ~tps:_ ~rhs =
     let unsupported = (fun _ _ -> raise_unsupported ()) in
     Gen.switch_tp_def
       ~alias:    unsupported
@@ -31,12 +30,11 @@ module Gen_struct = struct
       rhs
 
   let generate = function
-    | Ast.TyDcl (_loc, name, tps, rhs, _) -> fields_of_ty _loc ~record_name:name ~tps ~rhs
+    | Ast.TyDcl (_loc, name, tps, rhs, _) -> bson_of_ty _loc ~record_name:name ~tps ~rhs
     | Ast.TyAnd (_loc, _, _) as tds ->
-
         ignore (_loc, tds);
         failwith "Not supported"
-    | _                             -> assert false
+    | _ -> assert false
 end
 
 

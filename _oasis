@@ -19,10 +19,10 @@ Library pa_bson
   FindlibName:        syntax
   BuildDepends:       camlp4.lib,
                       camlp4.quotations,
-                      type-conv (>= 2.0.1)
+                      type-conv (>= 3.0.4)
   CompiledObject:     byte
   XMETAType:          syntax
-  XMETARequires:      camlp4,type-conv,fieldslib
+  XMETARequires:      camlp4, type-conv
   XMETADescription:   Syntax extension for Cobson
 
 Library cobson
@@ -48,9 +48,7 @@ Executable hello
   MainIs:          world.ml
   Install:         false
   CompiledObject:  best
-  BuildDepends:    cobson, cobson.syntax, binary, calendar
-  NativeOpt:       -w @a -g
-  ByteOpt:         -w @a -g
+  BuildDepends:    cobson, cobson.syntax
 
 SourceRepository github
   Type:     git

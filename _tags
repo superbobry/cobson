@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 632d334159da96c4f421275302ca3ba3)
-# Ignore VCS directories, you can use the same kind of rule outside
-# OASIS_START/STOP if you want to exclude directories that contains
+# DO NOT EDIT (digest: bacd8e65bbedc4a6da9331e5349af7a0)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -28,10 +28,6 @@
 <src/*.ml{,i}>: pkg_calendar
 <src/*.ml{,i}>: pkg_binary
 # Executable hello
-<examples/world.{native,byte}>: oasis_executable_hello_byte
-<examples/*.ml{,i}>: oasis_executable_hello_byte
-<examples/world.{native,byte}>: oasis_executable_hello_native
-<examples/*.ml{,i}>: oasis_executable_hello_native
 <examples/world.{native,byte}>: use_cobson
 <examples/world.{native,byte}>: use_pa_bson
 <examples/world.{native,byte}>: pkg_type-conv
@@ -62,4 +58,4 @@
 # OASIS_STOP
 "src/bson.ml": syntax_camlp4o
 <syntax/pa_bson.ml>: syntax_camlp4o
-<examples/*.ml>: syntax_camlp4o, use_pa_bson
+<examples/*.ml>: syntax_camlp4o

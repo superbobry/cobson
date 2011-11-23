@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1820c67c9fdb26a51aaac57008e96100)
+# DO NOT EDIT (digest: c0d0f0b3b9dd31ebd1c1265afdd61eb1)
 version = "0.0.1"
 description = "BSON codec for OCaml"
 requires = "binary calendar camlp4"
@@ -9,7 +9,7 @@ exists_if = "cobson.cma"
 package "syntax" (
  version = "0.0.1"
  description = "Syntax extension for Cobson"
- requires = "camlp4 type-conv fieldslib"
+ requires = "camlp4 type-conv"
  archive(syntax, preprocessor) = "pa_bson.cma"
  archive(syntax, toploop) = "pa_bson.cma"
  exists_if = "pa_bson.cma"
