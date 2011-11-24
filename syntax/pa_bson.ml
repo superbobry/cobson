@@ -31,6 +31,8 @@ module Gen_bson_of = struct
           <:expr< Bson.Int64 $lid:name$ >>
         | <:ctyp< bool >>   ->
           <:expr< Bson.Boolean $lid:name$ >>
+        | <:ctyp< Bson.element >> ->
+          <:expr< $lid:name$ >>
         | _ -> assert false
       in <:expr< ($str:name$, $bson_ty$) >>
     in
