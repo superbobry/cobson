@@ -24,7 +24,7 @@ module Gen_bson_of = struct
         | <:ctyp< string >> ->
           <:expr< Bson.String $lid:name$ >>
         | <:ctyp< float >>  ->
-          <:expr< Bson.Float $lid:name$ >>
+          <:expr< Bson.Double $lid:name$ >>
         | <:ctyp< int32 >>  ->
           <:expr< Bson.Int32 $lid:name$ >>
         | <:ctyp< int64 >>  ->
@@ -42,7 +42,7 @@ module Gen_bson_of = struct
       fields
     in
 
-    <:expr< fun [ { $list:fun_args$ } -> Bson.encode $fun_body$ ] >>
+    <:expr< fun [ { $list:fun_args$ } -> Bson.to_string $fun_body$ ] >>
   ;;
 
   (* Generate code from type definition. *)

@@ -53,7 +53,7 @@ and array = element list (* array instead of list? *)
 and cstring = string
 
 
-let decode_stream bytes =
+let of_stream bytes =
   let rec parse_document = parser
     | [< len = parse_int32; st; >] ->
       parse_list [] (ES.take_int32 len st)
@@ -128,13 +128,11 @@ let decode_stream bytes =
       let () = print_int (Char.code c); print_newline() in
       malformed "data after trailing null byte!"
 
-let decode_string = S.of_string >> decode_stream
+let of_string = S.of_string >> of_stream
 
-let decode = decode_string
+let of_file = flip with_file_in <| S.of_channel >> of_stream
 
-let decode_file = flip with_file_in <| S.of_channel >> decode_stream
-
-let encode_to_buffer document =
+let to_buffer document =
   let buf = Buffer.create 16 in
   let addc = Buffer.add_char buf in
   let adds = Buffer.add_string buf in
@@ -199,6 +197,4 @@ let encode_to_buffer document =
   let () = adds dummy; encode_document document 0 in
   buf
 
-let encode_to_string = encode_to_buffer >> Buffer.contents
-
-let encode = encode_to_string
+let to_string = to_buffer >> Buffer.contents

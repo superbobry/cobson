@@ -99,7 +99,7 @@ let test_parse_unparse = Test.make_random_test
   (fun d -> d)
   [Spec.always ==> (fun d ->
     try
-      decode (encode d) = d
+      of_string (to_string d) = d
     with
       | MalformedBSON s -> print_endline s; false
       | Stream.Failure -> print_endline "Stream.Failure"; false
