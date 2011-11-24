@@ -1,13 +1,17 @@
+(** Cobson -- BSON library for OCaml. *)
+
 open CalendarLib
 
 exception MalformedBSON of string
 
 type cstring = string
-type objectid = private string
 
-exception IncorrectValue of string
-val from_objectid : objectid -> string
-val to_objectid : string -> objectid
+module ObjectId : sig
+  type t
+
+  val of_string : string -> t
+  val to_string : t -> string
+end
 
 type element =
   | Double of float
@@ -15,7 +19,7 @@ type element =
   | Document of document
   | Array of array
   | BinaryData of binary (* change it *)
-  | ObjectId of objectid
+  | ObjectId of ObjectId.t
   | Datetime of Calendar.t
   | Null
   | Boolean of bool

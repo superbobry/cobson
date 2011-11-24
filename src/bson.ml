@@ -12,16 +12,15 @@ module S = Stream
 exception MalformedBSON of string
 let malformed s = raise (MalformedBSON s)
 
-type cstring = string
-type objectid = string
 
-exception IncorrectValue of string
-let incorrect s = raise (IncorrectValue s)
+module ObjectId = struct
+  type t = string
 
-let from_objectid x = x
-let to_objectid x =
-  if String.length x = 12 then x
-  else incorrect x
+  let of_string x = x
+  and to_string x =
+    if String.length x = 12 then x else malformed "objectid"
+end
+
 
 type element =
   | Double of float
@@ -29,7 +28,7 @@ type element =
   | Document of document
   | Array of array
   | BinaryData of binary (* change it *)
-  | ObjectId of objectid
+  | ObjectId of ObjectId.t
   | Datetime of Calendar.t
   | Null
   | Boolean of bool
@@ -51,6 +50,7 @@ and binary =
   | UserDefined of string
 and document = (cstring * element) list
 and array = element list (* array instead of list? *)
+and cstring = string
 
 
 let decode_stream bytes =

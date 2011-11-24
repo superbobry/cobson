@@ -19,7 +19,7 @@ module Show = struct
     | Int64 v -> Printf.sprintf "Int64 %Ld" v
     | Timestamp v -> Printf.sprintf "Timestamp %Ld" v
     | BinaryData b -> Printf.sprintf "BinaryData %s" (binary b)
-    | ObjectId oid -> Printf.sprintf "ObjectId %s" (from_objectid oid)
+    | ObjectId oid -> Printf.sprintf "ObjectId %s" (ObjectId.to_string oid)
     | Array _
     | JSCodeWithScope _
     | Document _ -> "<unknown>"
@@ -40,7 +40,7 @@ module BSONGen = struct
   let cstring = G.word (G.make_int 0 0xffff)
 
   let objectid = G.map1 (fun s ->
-      ObjectId (to_objectid s)) Show.element (G.word (G.lift 12 "12"))
+      ObjectId (ObjectId.of_string s)) Show.element (G.word (G.lift 12 "12"))
   let double = G.map1 (fun f -> Double f) Show.element G.float
   let string = G.map1 (fun s -> String s) Show.element cstring
   let datetime = G.map1 (fun f ->
