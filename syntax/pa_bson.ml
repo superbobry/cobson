@@ -1,3 +1,4 @@
+open StdLabels
 open Camlp4.PreCast
 
 module Gen = Pa_type_conv.Gen
@@ -12,7 +13,7 @@ module Inspect = struct
     | <:ctyp@loc< $lid:name$ : $field_ty$ >> -> (name, field_ty)
     | _ -> assert false
 
-  let fields ty = List.map field (Ast.list_of_ctyp ty [])
+  let fields ty = List.map (Ast.list_of_ctyp ty []) ~f:field
 end
 
 
@@ -52,10 +53,9 @@ module Gen_bson_of = struct
 
     let loc = Ast.loc_of_ctyp tp in
     let fields = Inspect.fields tp in
-    let fun_body = Gen.mk_expr_lst loc (List.map (aux loc) fields)
-    and fun_args = List.map
-      (fun (n, _) -> <:patt@loc< $lid:n$ = $lid:n$ >>)
-      fields
+    let fun_body = Gen.mk_expr_lst loc (List.map fields ~f:(aux loc))
+    and fun_args = List.map fields
+      ~f:(fun (n, _) -> <:patt@loc< $lid:n$ = $lid:n$ >>)
     in
 
     <:expr@loc< fun [ { $list:fun_args$ } -> Bson.to_string $fun_body$ ] >>
