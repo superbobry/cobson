@@ -1,18 +1,14 @@
 (** A simple Cobson usage example. *)
 
-type t = {
-  foo : string;
-  bar : float;
-  egg : int32;
-  ham : int64;
-  boo : bool;
-  bak : Bson.element
+type foo = {
+  foo_f1 : string;
+  foo_f2 : bool list;
+}
+and bar = {
+  bar_f1 : int32
 } with bson
 
 
-print_endline (bson_of_t { foo = "foo"
-                         ; bar = 42.0
-                         ; egg = 42l
-                         ; ham = 42L
-                         ; boo = false
-                         ; bak = Bson.String "bak" })
+print_endline (bson_of_foo { foo_f1 = "foo_f1"
+                           ; foo_f2 = [false] });
+print_endline (bson_of_bar { bar_f1 = 0l })

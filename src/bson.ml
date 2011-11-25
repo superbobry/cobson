@@ -78,6 +78,8 @@ module Build = struct
   and int64 v = Int64 v
   and minkey = Minkey
   and maxkey = Maxkey
+
+  let auto t = ignore t; Minkey
 end
 
 
