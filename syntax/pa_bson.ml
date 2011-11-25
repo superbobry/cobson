@@ -28,9 +28,13 @@ module Gen_bson_of = struct
       <:expr@loc< Bson.Build.int64 >>
     | <:ctyp@loc< bool >> ->
       <:expr@loc< Bson.Build.boolean >>
-    | <:ctyp@loc< list $tp$ >> ->
+    | <:ctyp@loc< list $tp$ >> -> begin
+        let conv = bson_of_type tp in
+          <:expr@loc< fun [ l -> Bson.Build.array (List.map $conv$ l) ] >>
+      end
+    | <:ctyp@loc< option $tp$ >> ->
       let conv = bson_of_type tp in
-      <:expr@loc< fun [ l -> Bson.Build.array (List.map $conv$ l) ] >>
+      <:expr@loc< fun [ Some v -> $conv$ v | None -> Bson.Build.null ] >>
     | ty -> Gen.unknown_type ty "bson_of_type"
 
   let bson_of_record tp =

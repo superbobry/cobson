@@ -70,8 +70,6 @@ module Build : sig
   val int64 : int64 -> element
   val minkey : element
   val maxkey : element
-
-  val auto : 'a -> element
 end
 
 val of_stream : char Stream.t -> document
