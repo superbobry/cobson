@@ -2,6 +2,8 @@ open Bson
 open CalendarLib
 open Kaputt.Abbreviations
 
+module B = Build
+
 
 module Show = struct
   let rec element = function
@@ -37,33 +39,32 @@ end
 module BSONGen = struct
   module G = Gen
 
+  let map1 builder gen = G.map1 builder Show.element gen
+
   let cstring = G.word (G.make_int 0 0xffff)
 
-  let objectid = G.map1 (fun s ->
-      ObjectId (ObjectId.of_string s)) Show.element (G.word (G.lift 12 "12"))
-  let double = G.map1 (fun f -> Double f) Show.element G.float
-  let string = G.map1 (fun s -> String s) Show.element cstring
-  let datetime = G.map1 (fun f ->
-      Datetime (Calendar.from_unixfloat f)) Show.element G.float
-  let null = G.lift Null "null"
-  let boolean = G.map1 (fun b -> Boolean b) Show.element G.bool
-  let regex = G.map1 (fun p -> Regex p) Show.element (G.zip2 cstring cstring)
-  let jscode = G.map1 (fun c -> JSCode c) Show.element cstring
-  let symbol = G.map1 (fun s -> Symbol s) Show.element cstring
-  let int32 = G.map1 (fun v -> Int32 v) Show.element G.int32
-  let int64 = G.map1 (fun v -> Int64 v) Show.element G.int64
-  let timestamp = G.map1 (fun v -> Timestamp v) Show.element G.int64
-  let minkey = G.lift Minkey "Minkey"
-  let maxkey = G.lift Maxkey "Maxkey"
+  let objectid = map1 B.objectid (G.word (G.lift 12 "12"))
+  let double = map1 B.double G.float
+  let string = map1 B.string cstring
+  let datetime = map1 B.datetime G.float
+  let null = G.lift B.null "null"
+  let boolean = map1 B.boolean G.bool
+  let regex = map1 (G.apply2 B.regex) (G.zip2 cstring cstring)
+  let jscode = map1 B.jscode cstring
+  let symbol = map1 B.symbol cstring
+  let int32 = map1 B.int32 G.int32
+  let int64 = map1 B.int64 G.int64
+  let timestamp = map1 B.timestamp G.int64
+  let minkey = G.lift B.minkey "Minkey"
+  let maxkey = G.lift B.maxkey "Maxkey"
   let binary = G.choose_list [
-      G.map1 (fun s -> Generic s) Show.binary cstring;
-      G.map1 (fun s -> Function s) Show.binary cstring;
-      G.map1 (fun s -> GenericOld s) Show.binary cstring;
-      G.map1 (fun s -> UUID s) Show.binary cstring;
-      G.map1 (fun s -> MD5 s) Show.binary cstring;
-      G.map1 (fun s -> UserDefined s) Show.binary cstring
+    map1 B.Binary.generic cstring;
+    map1 B.Binary.f cstring;
+    map1 B.Binary.generic_old cstring;
+    map1 B.Binary.uuid cstring;
+    map1 B.Binary.md5 cstring;
+    map1 B.Binary.custom cstring
   ]
-  let binary_data = G.map1 (fun b -> BinaryData b) Show.element binary
 
   (* Primitive types. *)
   let element = G.choose_list [
@@ -80,12 +81,11 @@ module BSONGen = struct
       timestamp;
       minkey;
       maxkey;
-      binary_data
+      binary
   ]
 
   (* Compound types. *)
-  let array = G.map1 (fun a -> Array a) Show.element
-      (G.list (G.make_int 0 0xf) element)
+  let array = map1 B.array (G.list (G.make_int 0 0xf) element)
   let document = G.list (G.make_int 0 0xf)
       (G.zip2 cstring (G.choose_list [element; array]))
 
@@ -101,7 +101,7 @@ let test_parse_unparse = Test.make_random_test
     try
       of_string (to_string d) = d
     with
-      | MalformedBSON s -> print_endline s; false
+      | Bson_error s -> print_endline s; false
       | Stream.Failure -> print_endline "Stream.Failure"; false
       | Stream.Error s -> Printf.printf "Stream.Error %s\n" s; false
    )

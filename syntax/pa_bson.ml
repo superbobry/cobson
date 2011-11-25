@@ -22,15 +22,15 @@ module Gen_bson_of = struct
       (* TODO: does mutability make any difference? *)
       let bson_ty = match field_ty with
         | <:ctyp< string >> ->
-          <:expr< Bson.String $lid:name$ >>
+          <:expr< Bson.Build.string $lid:name$ >>
         | <:ctyp< float >>  ->
-          <:expr< Bson.Double $lid:name$ >>
+          <:expr< Bson.Build.double $lid:name$ >>
         | <:ctyp< int32 >>  ->
-          <:expr< Bson.Int32 $lid:name$ >>
+          <:expr< Bson.Build.int32 $lid:name$ >>
         | <:ctyp< int64 >>  ->
-          <:expr< Bson.Int64 $lid:name$ >>
+          <:expr< Bson.Build.int64 $lid:name$ >>
         | <:ctyp< bool >>   ->
-          <:expr< Bson.Boolean $lid:name$ >>
+          <:expr< Bson.Build.boolean $lid:name$ >>
         | <:ctyp< Bson.element >> ->
           <:expr< $lid:name$ >>
         | _ -> assert false

@@ -1,6 +1,8 @@
 (** Cobson -- BSON library for OCaml. *)
 
-exception MalformedBSON of string
+open CalendarLib
+
+exception Bson_error of string
 
 
 module ObjectId : sig
@@ -15,10 +17,10 @@ type element =
   | Double of float
   | String of string
   | Document of document
-  | Array of array
+  | Array of element list
   | BinaryData of binary (* change it *)
   | ObjectId of ObjectId.t
-  | Datetime of CalendarLib.Calendar.t
+  | Datetime of Calendar.t
   | Null
   | Boolean of bool
   | Regex of (cstring * cstring)
@@ -38,8 +40,37 @@ and binary =
   | MD5 of string
   | UserDefined of string
 and document = (cstring * element) list
-and array = element list (* array instead of list? *)
 and cstring = string
+
+
+module Build : sig
+  module Binary : sig
+    val generic : string -> element
+    val f : string -> element
+    val generic_old : string -> element
+    val uuid : string -> element
+    val md5 : string -> element
+    val custom : string -> element
+  end
+
+  val double : float -> element
+  val string : string -> element
+  val document : document -> element
+  val array : element list -> element
+  val objectid : string -> element
+  val datetime : float -> element
+  val null : element
+  val boolean : bool -> element
+  val regex : cstring -> cstring -> element
+  val jscode : string -> element
+  val symbol : string -> element
+  val jscode_with_scope : string -> document -> element
+  val int32 : int32 -> element
+  val timestamp : int64 -> element
+  val int64 : int64 -> element
+  val minkey : element
+  val maxkey : element
+end
 
 val of_stream : char Stream.t -> document
 

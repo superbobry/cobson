@@ -1,7 +1,6 @@
-open CalendarLib
-
 open Util
 
+module Calendar = CalendarLib.Calendar
 module ES = ExStream
 module S = Stream
 
@@ -9,8 +8,8 @@ module S = Stream
 (* TODO: use Res monad (manatki are cool!)  *)
 (* TODO: check ranges for timestamps *)
 
-exception MalformedBSON of string
-let malformed s = raise (MalformedBSON s)
+exception Bson_error of string
+let bson_error s = raise (Bson_error s)
 
 
 module ObjectId = struct
@@ -18,7 +17,7 @@ module ObjectId = struct
 
   let of_string x = x
   and to_string x =
-    if String.length x = 12 then x else malformed "objectid"
+    if String.length x = 12 then x else bson_error "objectid"
 end
 
 
@@ -26,7 +25,7 @@ type element =
   | Double of float
   | String of string
   | Document of document
-  | Array of array
+  | Array of element list
   | BinaryData of binary (* change it *)
   | ObjectId of ObjectId.t
   | Datetime of Calendar.t
@@ -49,43 +48,72 @@ and binary =
   | MD5 of string
   | UserDefined of string
 and document = (cstring * element) list
-and array = element list (* array instead of list? *)
 and cstring = string
+
+
+module Build = struct
+  module Binary = struct
+    let generic s = BinaryData (Generic s)
+    and f s = BinaryData (Function s)
+    and generic_old s = BinaryData (GenericOld s)
+    and uuid s = BinaryData (UUID s)
+    and md5 s = BinaryData (MD5 s)
+    and custom s = BinaryData (UserDefined s)
+  end
+
+  let double f = Double f
+  and string s = String s
+  and document l = Document l
+  and array l = Array l
+  and objectid s = ObjectId (ObjectId.of_string s)
+  and datetime f = Datetime (Calendar.from_unixfloat f)
+  and null = Null
+  and boolean b = Boolean b
+  and regex p opts = Regex (p, opts)  (* TODO(superbobry): use Str.regexp? *)
+  and jscode s = JSCode s
+  and jscode_with_scope s scope = JSCodeWithScope (s, scope)
+  and symbol s = Symbol s
+  and int32 v = Int32 v
+  and timestamp v = Timestamp v
+  and int64 v = Int64 v
+  and minkey = Minkey
+  and maxkey = Maxkey
+end
 
 
 let of_stream bytes =
   let rec parse_document = parser
     | [< len = parse_int32; st; >] ->
       parse_list [] (ES.take_int32 len st)
-    | [< >] -> malformed "parse_document"
+    | [< >] -> bson_error "parse_document"
   and parse_list acc = parser
     | [< ''\x00' >] -> List.rev acc
     | [< 'code; key = parse_cstring; el = parse_element code; st >] ->
       parse_list ((key, el)::acc) st
-    | [< >] -> malformed "parse_list : doesn't contain null byte"
+    | [< >] -> bson_error "parse_list : doesn't contain null byte"
   and parse_element c st = match c with
-    | '\x01' -> Double (parse_double st)
-    | '\x02' -> String (parse_string st)
-    | '\x03' -> Document (parse_document st)
-    | '\x04' -> Array (List.map snd <| parse_document st)
+    | '\x01' -> Build.double (parse_double st)
+    | '\x02' -> Build.string (parse_string st)
+    | '\x03' -> Build.document (parse_document st)
+    | '\x04' -> Build.array (List.map snd <| parse_document st)
     | '\x05' -> BinaryData (parse_binary st)
     | '\x07' -> ObjectId (ES.take_string 12 st)
     | '\x08' -> Boolean (parse_boolean <| S.next st)
-    | '\x09' -> Datetime (Calendar.from_unixfloat <| parse_double st)
-    | '\x0A' -> Null
-    | '\x0B' -> let first = parse_cstring st in
-                let sec = parse_cstring st in
-                Regex (first, sec)
+    | '\x09' -> Build.datetime (parse_double st)
+    | '\x0A' -> Build.null
+    | '\x0B' -> let pattern = parse_cstring st in
+                let opts = parse_cstring st in
+                Regex (pattern, opts)
     | '\x0D' -> JSCode (parse_string st)
-    | '\x0E' -> Symbol (parse_string st)
+    | '\x0E' -> Build.symbol (parse_string st)
     | '\x0F' -> JSCodeWithScope (
       (s_comb (flip ES.take_int32) parse_int32 st) |> parse_jscode)
-    | '\x10' -> Int32 (parse_int32 st)
+    | '\x10' -> Build.int32 (parse_int32 st)
     | '\x11' -> Timestamp (parse_int64 st)
-    | '\x12' -> Int64 (parse_int64 st)
-    | '\xFF' -> Minkey
-    | '\x7F' -> Maxkey
-    | c -> malformed &
+    | '\x12' -> Build.int64 (parse_int64 st)
+    | '\xFF' -> Build.minkey
+    | '\x7F' -> Build.maxkey
+    | c -> bson_error &
       Printf.sprintf "parse_element: invalid type: %s" (Char.escaped c)
   and parse_cstring = ES.take_while (fun c -> c <> '\x00') >> ES.to_string
   and parse_double = ES.take_string 8 >> unpack_float
@@ -94,18 +122,18 @@ let of_stream bytes =
   and parse_boolean = function
     | '\x00' -> false
     | '\x01' -> true
-    |  _ -> malformed "parse_boolean"
+    |  _ -> bson_error "parse_boolean"
   and parse_string = parser
     | [< len = parse_int32; rest >] ->
       let len' = Int32.sub len 1l in
       let int_len = Int32.to_int len' in
       let s = ES.take_int32 len' rest |> ES.to_string ~len:int_len
       in S.junk rest ; s (* junk trailing null *)
-    | [< >] -> malformed "parse_string"
+    | [< >] -> bson_error "parse_string"
   and parse_binary = parser
     | [< len = parse_int32; 'c; st >] -> ES.take_string_int32 len st |>
                                          parse_subtype c
-    | [< >] -> malformed "parse_binary"
+    | [< >] -> bson_error "parse_binary"
   and parse_subtype c st = match c with
     | '\x00' -> Generic st
     | '\x01' -> Function st
@@ -113,20 +141,20 @@ let of_stream bytes =
     | '\x03' -> UUID st
     | '\x05' -> MD5 st
     | '\x80' -> UserDefined st
-    | _ -> malformed "invalid binary subtype!"
+    | _ -> bson_error "invalid binary subtype!"
   and parse_jscode = parser
     | [< st = parse_string; doc = parse_document >] -> (st, doc)
-    | [< >] -> malformed "parse_jscode"
+    | [< >] -> bson_error "parse_jscode"
   in
   let res =
     try parse_document bytes
-    with S.Failure -> malformed "malformed bson data"
+    with S.Failure -> bson_error "malformed bson data"
   in
   match S.peek bytes with
     | None -> res
     | Some c ->
       let () = print_int (Char.code c); print_newline() in
-      malformed "data after trailing null byte!"
+      bson_error "data after trailing null byte!"
 
 let of_string = S.of_string >> of_stream
 
