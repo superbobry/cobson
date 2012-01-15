@@ -4,6 +4,7 @@ open CalendarLib
 
 exception Bson_error of string
 
+type cstring = string
 
 module ObjectId : sig
   type t
@@ -12,6 +13,14 @@ module ObjectId : sig
   val to_string : t -> string
 end
 
+module Document : sig
+  include Map.S with type key = cstring
+
+  val keys    : 'a t -> key list
+  val values  : 'a t -> 'a list
+  val of_list : (key * 'a) list -> 'a t
+  val to_list : 'a t -> (key * 'a) list
+end
 
 type element =
   | Double of float
@@ -39,9 +48,7 @@ and binary =
   | UUID of string
   | MD5 of string
   | UserDefined of string
-and document = (cstring * element) list
-and cstring = string
-
+and document = element Document.t
 
 module Build : sig
   module Binary : sig
@@ -70,6 +77,11 @@ module Build : sig
   val int64 : int64 -> element
   val minkey : element
   val maxkey : element
+end
+
+module Show : sig
+  val document : document -> string
+  val element : element -> string
 end
 
 val of_stream : char Stream.t -> document

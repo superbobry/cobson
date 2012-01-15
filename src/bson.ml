@@ -9,7 +9,7 @@ module S = Stream
 (* TODO: check ranges for timestamps *)
 
 exception Bson_error of string
-let bson_error s = raise (Bson_error s)
+let bson_error fmt = Printf.ksprintf (fun s -> raise (Bson_error s)) fmt
 
 
 module ObjectId = struct
@@ -18,6 +18,17 @@ module ObjectId = struct
   let of_string x = x
   and to_string x =
     if String.length x = 12 then x else bson_error "objectid"
+end
+
+
+module Document = struct
+  include Map.Make(String)
+
+  let keys   d = fold (fun k _ l -> k :: l) d []
+  let values d = fold (fun _ v l -> v :: l) d []
+
+  let of_list l = List.fold_right (fun (k, v) -> add k v) l empty
+  let to_list   = bindings
 end
 
 
@@ -47,9 +58,8 @@ and binary =
   | UUID of string
   | MD5 of string
   | UserDefined of string
-and document = (cstring * element) list
-and cstring = string
-
+and cstring  = string
+and document = element Document.t
 
 module Build = struct
   module Binary = struct
@@ -63,7 +73,7 @@ module Build = struct
 
   let double f = Double f
   and string s = String s
-  and document l = Document l
+  and document d = Document d
   and array l = Array l
   and objectid s = ObjectId (ObjectId.of_string s)
   and datetime f = Datetime (Calendar.from_unixfloat f)
@@ -81,21 +91,62 @@ module Build = struct
 end
 
 
+module Show = struct
+  let rec document d =
+    let bindings = Document.fold (fun k v acc ->
+      Printf.sprintf "%S: %s" k (element v) :: acc
+    ) d []
+
+    in Printf.sprintf "{%s}" (String.concat ", " (List.rev bindings))
+
+  and element = function
+    | Double d -> Printf.sprintf "Double %f" d
+    | String s -> Printf.sprintf "String %s" s
+    | JSCode c -> Printf.sprintf "JSCode %s" c
+    | Symbol s -> Printf.sprintf "Symbol %s" s
+    | Datetime d -> CalendarLib.Printer.Calendar.to_string d
+    | Null -> "Null"
+    | Minkey -> "Minkey"
+    | Maxkey -> "Maxkey"
+    | Boolean b -> Printf.sprintf "Boolean %b" b
+    | Regex (f, s) -> Printf.sprintf "Regex %s %s" f s
+    | Int32 v -> Printf.sprintf "Int32 %ld" v
+    | Int64 v -> Printf.sprintf "Int64 %Ld" v
+    | Timestamp v -> Printf.sprintf "Timestamp %Ld" v
+    | BinaryData b -> Printf.sprintf "BinaryData %s" (binary b)
+    | ObjectId oid -> Printf.sprintf "ObjectId %s" (ObjectId.to_string oid)
+    | Document d -> document d
+    | Array a ->
+      let elements = List.map element a in
+      Printf.sprintf "[%s]" (String.concat ", " elements)
+    | JSCodeWithScope _ -> "<unknown>"
+
+  and binary = function
+    | Generic s -> Printf.sprintf "Generic %s" s
+    | Function f -> Printf.sprintf "Function %s" f
+    | GenericOld s -> Printf.sprintf "GenericOld %s" s
+    | UUID u -> Printf.sprintf "UUID %s" u
+    | MD5 h -> Printf.sprintf "MD5 %s" h
+    | UserDefined s -> Printf.sprintf "UserDefined %s" s
+end
+
+
 let of_stream bytes =
-  let rec parse_document = parser
-    | [< len = parse_int32; st; >] ->
-      parse_list [] (ES.take_int32 len st)
-    | [< >] -> bson_error "parse_document"
-  and parse_list acc = parser
-    | [< ''\x00' >] -> List.rev acc
-    | [< 'code; key = parse_cstring; el = parse_element code; st >] ->
-      parse_list ((key, el)::acc) st
-    | [< >] -> bson_error "parse_list : doesn't contain null byte"
+  let rec parse_document st = Document.of_list (parse_list st)
+  and parse_list =
+    let rec inner acc = parser
+      | [< ''\x00' >] -> List.rev acc
+      | [< 'code; key = parse_cstring; el = parse_element code; st >] ->
+        inner ((key, el) :: acc) st
+      | [< >] -> bson_error "parse_list: doesn't contain null byte"
+    in parser
+      | [< len = parse_int32; st; >] -> inner [] (ES.take_int32 len st)
+      | [< >] -> bson_error "parse_list"
   and parse_element c st = match c with
     | '\x01' -> Build.double (parse_double st)
     | '\x02' -> Build.string (parse_string st)
     | '\x03' -> Build.document (parse_document st)
-    | '\x04' -> Build.array (List.map snd <| parse_document st)
+    | '\x04' -> Build.array (List.map snd <| parse_list st)
     | '\x05' -> BinaryData (parse_binary st)
     | '\x07' -> ObjectId (ES.take_string 12 st)
     | '\x08' -> Boolean (parse_boolean <| S.next st)
@@ -113,8 +164,7 @@ let of_stream bytes =
     | '\x12' -> Build.int64 (parse_int64 st)
     | '\xFF' -> Build.minkey
     | '\x7F' -> Build.maxkey
-    | c -> bson_error &
-      Printf.sprintf "parse_element: invalid type: %s" (Char.escaped c)
+    | c -> bson_error "parse_element: invalid type: %s" (Char.escaped c)
   and parse_cstring = ES.take_while (fun c -> c <> '\x00') >> ES.to_string
   and parse_double = ES.take_string 8 >> unpack_float
   and parse_int32 = ES.take_string 4 >> unpack_int32
@@ -146,15 +196,16 @@ let of_stream bytes =
     | [< st = parse_string; doc = parse_document >] -> (st, doc)
     | [< >] -> bson_error "parse_jscode"
   in
-  let res =
-    try parse_document bytes
-    with S.Failure -> bson_error "malformed bson data"
-  in
-  match S.peek bytes with
-    | None -> res
+
+  let result =
+    try
+      parse_document bytes
+    with S.Failure ->
+      bson_error "malformed bson data"
+  in match S.peek bytes with
     | Some c ->
-      let () = print_int (Char.code c); print_newline() in
-      bson_error "data after trailing null byte!"
+      bson_error "data after trailing null byte! %c" c
+    | None   -> result
 
 let of_string = S.of_string >> of_stream
 
@@ -180,7 +231,7 @@ let to_buffer document =
     | String s -> addp '\x02'; encode_string s
     | Document d -> let () = addp '\x03' in
                     let pos = curpos () in
-                    adds dummy; encode_document d pos
+                    adds dummy; encode_document (Document.to_list d) pos
     | Array l -> let len = List.length l in
                  let d = List.combine (List.map string_of_int <| range len) l in
                  let () = addp '\x04' in
@@ -198,7 +249,8 @@ let to_buffer document =
                                 let pos_js = curpos () in
                                 let () = adds dummy; encode_string s in
                                 let pos_d = curpos () in
-                                encode_document d pos_d; patch_length pos_js
+                                encode_document (Document.to_list d) pos_d;
+                                patch_length pos_js
     | Int32 i -> addp '\x10'; adds <| pack_int32 i
     | Timestamp l -> addp '\x11'; adds <| pack_int64 l
     | Int64 l -> addp '\x12'; adds <| pack_int64 l
@@ -222,7 +274,7 @@ let to_buffer document =
     | MD5 st -> ('\x05', st)
     | UserDefined st -> ('\x80', st)
   in
-  let () = adds dummy; encode_document document 0 in
+  let () = adds dummy; encode_document (Document.to_list document) 0 in
   buf
 
 let to_string = to_buffer >> Buffer.contents

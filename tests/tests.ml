@@ -4,38 +4,6 @@ open Kaputt.Abbreviations
 
 module B = Build
 
-
-module Show = struct
-  let rec element = function
-    | Double d -> Printf.sprintf "Double %f" d
-    | String s -> Printf.sprintf "String %s" s
-    | JSCode c -> Printf.sprintf "JSCode %s" c
-    | Symbol s -> Printf.sprintf "Symbol %s" s
-    | Datetime d -> Printer.Calendar.to_string d
-    | Null -> "Null"
-    | Minkey -> "Minkey"
-    | Maxkey -> "Maxkey"
-    | Boolean b -> Printf.sprintf "Boolean %b" b
-    | Regex (f, s) -> Printf.sprintf "Regex %s %s" f s
-    | Int32 v -> Printf.sprintf "Int32 %ld" v
-    | Int64 v -> Printf.sprintf "Int64 %Ld" v
-    | Timestamp v -> Printf.sprintf "Timestamp %Ld" v
-    | BinaryData b -> Printf.sprintf "BinaryData %s" (binary b)
-    | ObjectId oid -> Printf.sprintf "ObjectId %s" (ObjectId.to_string oid)
-    | Array _
-    | JSCodeWithScope _
-    | Document _ -> "<unknown>"
-
-  and binary = function
-    | Generic s -> Printf.sprintf "Generic %s" s
-    | Function f -> Printf.sprintf "Function %s" f
-    | GenericOld s -> Printf.sprintf "GenericOld %s" s
-    | UUID u -> Printf.sprintf "UUID %s" u
-    | MD5 h -> Printf.sprintf "MD5 %s" h
-    | UserDefined s -> Printf.sprintf "UserDefined %s" s
-end
-
-
 module BSONGen = struct
   module G = Gen
 
@@ -86,8 +54,10 @@ module BSONGen = struct
 
   (* Compound types. *)
   let array = map1 B.array (G.list (G.make_int 0 0xf) element)
-  let document = G.list (G.make_int 0 0xf)
+  let document =
+    let l = G.list (G.make_int 0 0xf)
       (G.zip2 cstring (G.choose_list [element; array]))
+    in G.map1 Document.of_list Show.document l
 
   (* TODO(superbobry): add JSCodeWithScope! *)
 end
@@ -97,9 +67,11 @@ let test_parse_unparse = Test.make_random_test
   ~title:"parse<->unparse"
   BSONGen.document
   (fun d -> d)
-  [Spec.always ==> (fun d ->
+  [Spec.always ==> (fun d1 ->
+    let d2 = of_string (to_string d1) in
+
     try
-      of_string (to_string d) = d
+      Document.compare Pervasives.compare d1 d2 = 0
     with
       | Bson_error s -> print_endline s; false
       | Stream.Failure -> print_endline "Stream.Failure"; false
