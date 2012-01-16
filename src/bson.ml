@@ -1,7 +1,6 @@
 open Util
 
 module Calendar = CalendarLib.Calendar
-module ES = ExStream
 module S = Stream
 
 (* TODO: make functor to use custom types for list at least *)
@@ -131,75 +130,85 @@ module Show = struct
 end
 
 
-let of_stream bytes =
-  let rec parse_document st = Document.of_list (parse_list st)
-  and parse_list =
+module Parse = struct
+  let rec document st = Document.of_list (list st)
+
+  and list =
     let rec inner acc = parser
       | [< ''\x00' >] -> List.rev acc
-      | [< 'code; key = parse_cstring; el = parse_element code; st >] ->
-        inner ((key, el) :: acc) st
-      | [< >] -> bson_error "parse_list: doesn't contain null byte"
+      | [< 'kind; key = cstring; value = element kind; st >] ->
+        inner ((key, value) :: acc) st
+      | [< >] -> bson_error "list doesn't contain null byte"
     in parser
-      | [< len = parse_int32; st; >] -> inner [] (ES.take_int32 len st)
-      | [< >] -> bson_error "parse_list"
-  and parse_element c st = match c with
-    | '\x01' -> Build.double (parse_double st)
-    | '\x02' -> Build.string (parse_string st)
-    | '\x03' -> Build.document (parse_document st)
-    | '\x04' -> Build.array (List.map snd <| parse_list st)
-    | '\x05' -> BinaryData (parse_binary st)
-    | '\x07' -> ObjectId (ES.take_string 12 st)
-    | '\x08' -> Boolean (parse_boolean <| S.next st)
-    | '\x09' -> Build.datetime (parse_double st)
+      | [< len = int32; st; >] -> inner [] (S.take_int32 len st)
+      | [< >] -> bson_error "invalid list"
+
+  and element kind st = match kind with
+    | '\x01' -> Build.double (double st)
+    | '\x02' -> Build.string (string st)
+    | '\x03' -> Build.document (document st)
+    | '\x04' -> Build.array (List.map snd <| list st)
+    | '\x05' -> BinaryData (binary st)
+    | '\x07' -> ObjectId (S.take_string 12 st)
+    | '\x08' -> Boolean (boolean <| S.next st)
+    | '\x09' -> Build.datetime (double st)
     | '\x0A' -> Build.null
-    | '\x0B' -> let pattern = parse_cstring st in
-                let opts = parse_cstring st in
-                Regex (pattern, opts)
-    | '\x0D' -> JSCode (parse_string st)
-    | '\x0E' -> Build.symbol (parse_string st)
-    | '\x0F' -> JSCodeWithScope (
-      (s_comb (flip ES.take_int32) parse_int32 st) |> parse_jscode)
-    | '\x10' -> Build.int32 (parse_int32 st)
-    | '\x11' -> Timestamp (parse_int64 st)
-    | '\x12' -> Build.int64 (parse_int64 st)
+    | '\x0B' ->
+      let pattern = cstring st and opts = cstring st in
+      Regex (pattern, opts)
+    | '\x0D' -> JSCode (string st)
+    | '\x0E' -> Build.symbol (string st)
+    | '\x0F' ->
+      (* FIXME(Sergei): unobfuscate! *)
+      JSCodeWithScope ((s_comb (flip S.take_int32) int32 st) |> jscode)
+    | '\x10' -> Build.int32 (int32 st)
+    | '\x11' -> Timestamp (int64 st)
+    | '\x12' -> Build.int64 (int64 st)
     | '\xFF' -> Build.minkey
     | '\x7F' -> Build.maxkey
-    | c -> bson_error "parse_element: invalid type: %s" (Char.escaped c)
-  and parse_cstring = ES.take_while (fun c -> c <> '\x00') >> ES.to_string
-  and parse_double = ES.take_string 8 >> unpack_float
-  and parse_int32 = ES.take_string 4 >> unpack_int32
-  and parse_int64 = ES.take_string 8 >> unpack_int64
-  and parse_boolean = function
+    | _      -> bson_error "invalid element kind: %C" kind
+
+  and cstring = S.take_while ((<>) '\x00') >> S.to_string
+  and int32 = S.take_string 4 >> unpack_int32
+  and int64 = S.take_string 8 >> unpack_int64
+  and double = S.take_string 8 >> unpack_float
+  and boolean = function
     | '\x00' -> false
     | '\x01' -> true
-    |  _ -> bson_error "parse_boolean"
-  and parse_string = parser
-    | [< len = parse_int32; rest >] ->
-      let len' = Int32.sub len 1l in
-      let int_len = Int32.to_int len' in
-      let s = ES.take_int32 len' rest |> ES.to_string ~len:int_len
-      in S.junk rest ; s (* junk trailing null *)
-    | [< >] -> bson_error "parse_string"
-  and parse_binary = parser
-    | [< len = parse_int32; 'c; st >] -> ES.take_string_int32 len st |>
-                                         parse_subtype c
-    | [< >] -> bson_error "parse_binary"
-  and parse_subtype c st = match c with
-    | '\x00' -> Generic st
-    | '\x01' -> Function st
-    | '\x02' -> GenericOld st
-    | '\x03' -> UUID st
-    | '\x05' -> MD5 st
-    | '\x80' -> UserDefined st
-    | _ -> bson_error "invalid binary subtype!"
-  and parse_jscode = parser
-    | [< st = parse_string; doc = parse_document >] -> (st, doc)
-    | [< >] -> bson_error "parse_jscode"
-  in
+    |  v -> bson_error "invalid boolean value: %C" v
 
+  and string = parser
+    | [< len = int32; rest >] ->
+      let len = Int32.to_int len in
+      let str = S.take_string (len - 1) rest in
+      S.junk rest; (* Note(Sergei): junk the trailing null. *)
+      str
+    | [< >] -> bson_error "invalid string"
+
+  and binary = parser
+    | [< len = int32; 'kind; st >] ->
+      S.take_string_int32 len st |> subtype kind
+    | [< >] -> bson_error "invalid binary"
+
+  and subtype kind data = match kind with
+    | '\x00' -> Generic data
+    | '\x01' -> Function data
+    | '\x02' -> GenericOld data
+    | '\x03' -> UUID data
+    | '\x05' -> MD5 data
+    | '\x80' -> UserDefined data
+    | _      -> bson_error "invalid binary subtype: %C!" kind
+
+  and jscode = parser
+    | [< code = string; scope = document >] -> (code, scope)
+    | [< >] -> bson_error "invalid jscode with scope"
+end
+
+
+let of_stream bytes =
   let result =
     try
-      parse_document bytes
+      Parse.document bytes
     with S.Failure ->
       bson_error "malformed bson data"
   in match S.peek bytes with
@@ -209,8 +218,7 @@ let of_stream bytes =
 
 let of_string = S.of_string >> of_stream
 
-let of_file = flip with_file_in <| S.of_channel >> of_stream
-
+(* TODO(Sergei): clean this up! *)
 let to_buffer document =
   let buf = Buffer.create 16 in
   let addc = Buffer.add_char buf in

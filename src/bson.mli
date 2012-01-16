@@ -86,8 +86,6 @@ end
 
 val of_stream : char Stream.t -> document
 
-val of_file : string -> document
-
 val of_string : string -> document
 
 val to_buffer : document -> Buffer.t

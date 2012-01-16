@@ -42,8 +42,8 @@ let pack_float f =
 and unpack_float buf = Binary.LE.unpack_float ~buf ~pos:0
 
 
-module ExStream = struct
-  open Stream
+module Stream = struct
+  include Stream
 
   let rec take n s =
     if n > 0
@@ -78,7 +78,6 @@ module ExStream = struct
 
   let take_string = take >>> to_string
   let take_string_int32 = take_int32 >>> to_string
-
 end
 
 
@@ -95,29 +94,12 @@ let range ?(start=0) stop = list_unfold (pred >> double) ((==) start) stop
 
 let str_length_int32 s = Int32.of_int & String.length s
 
-(* resource management operations *)
-let try_finally action finally =
-  try
-    let result = action () in
-      finally ();
-      result;
-  with x -> finally (); raise x
-
-let with_resource resource action post =
-  try_finally (fun () -> action resource) (fun () -> post resource)
-
-let with_file_in filename action =
-  with_resource (open_in filename) action close_in
-let with_file_out filename action =
-  with_resource (open_out filename) action close_out
-
 (* Ocaml batteries *)
-type buffer =
-    {mutable buffer : string;
-     mutable position : int;
-     mutable length : int;
-     initial_buffer : string
-    }
+type buffer = { mutable buffer : string;
+                mutable position : int;
+                mutable length : int;
+                initial_buffer : string
+              }
 
 external buffer_of_t : Buffer.t -> buffer = "%identity"
 external t_of_buffer : buffer -> Buffer.t = "%identity";;
