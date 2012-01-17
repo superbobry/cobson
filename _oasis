@@ -6,11 +6,12 @@ Authors:     Roma Sokolov
 License:     MIT
 LicenseFile: LICENSE
 Plugins:     DevFiles (0.2), META (0.2), StdFiles (0.2)
-BuildTools: ocamlbuild
+BuildTools:  ocamlbuild
+XStdFilesREADME: false
 
 Flag tests
   Description: Build tests
-  Default: true
+  Default: false
 
 Library pa_bson
   Path:               syntax
