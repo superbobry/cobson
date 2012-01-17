@@ -17,6 +17,52 @@ module Inspect = struct
 end
 
 
+module Gen_of_bson = struct
+  let record_of_bson tp =
+    let loc = Ast.loc_of_ctyp tp in
+    let fields = Inspect.fields tp in
+    let fun_args = [] in
+    let fun_body = <:expr@loc< () >> in
+    <:expr@loc< fun [ { $list:fun_args$ } -> $fun_body$ ] >>
+
+  let td_of_bson loc type_name tps rhs =
+    let unsupported = (fun _ _ -> raise_unsupported ()) in
+    let fun_body = Gen.switch_tp_def
+      ~alias:    unsupported
+      ~sum:      unsupported
+      ~variants: unsupported
+      ~mani:     (fun _ _ _ -> raise_unsupported ())
+      ~nil:      (fun _ -> raise_unsupported ())
+      ~record:   (fun (_ : Loc.t) tp -> record_of_bson tp)
+      rhs
+    and fun_name = <:patt@loc< $lid:type_name ^ "_of_bson"$ >> in
+
+    <:binding@loc< $fun_name$ = $fun_body$ >>
+
+  let rec tds_of_bson = function
+    | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
+      td_of_bson loc type_name tps rhs
+    | Ast.TyAnd (loc, tp1, tp2) ->
+      <:binding@loc< $tds_of_bson tp1$ and $tds_of_bson tp2$ >>
+    | _ -> assert false  (* impossible *)
+
+  let of_bson tds =
+    let (binding, recursive, loc) =
+      match tds with
+        | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
+            (td_of_bson loc type_name tps rhs,
+             Gen.type_is_recursive type_name rhs,
+             loc)
+        | Ast.TyAnd (loc, _, _) as tds -> (tds_of_bson tds, true, loc)
+        | _ -> assert false
+    in
+      if recursive then
+        <:str_item@loc< value rec $binding$ >>
+      else
+        <:str_item@loc< value $binding$ >>
+end
+
+
 module Gen_bson_of = struct
   let rec bson_of_type = function
     | <:ctyp@loc< string >> ->
@@ -40,7 +86,7 @@ module Gen_bson_of = struct
     | <:ctyp@loc< option $tp$ >> ->
       <:expr@loc<
         fun [ Some v -> $bson_of_type tp$ v
-            | None -> Bson.Build.null ]
+            | None   -> Bson.Build.null ]
       >>
     | ty -> Gen.unknown_type ty "bson_of_type"
 
@@ -58,7 +104,10 @@ module Gen_bson_of = struct
       ~f:(fun (n, _) -> <:patt@loc< $lid:n$ = $lid:n$ >>)
     in
 
-    <:expr@loc< fun [ { $list:fun_args$ } -> Bson.to_string $fun_body$ ] >>
+    <:expr@loc<
+      fun { $list:fun_args$ } ->
+        Bson.to_string (Bson.Document.of_list $fun_body$)
+    >>
 
   (* Generate code from type definition. *)
   let bson_of_td loc type_name tps rhs =
@@ -71,8 +120,7 @@ module Gen_bson_of = struct
       ~nil:      (fun _ -> raise_unsupported ())
       ~record:   (fun (_ : Loc.t) tp -> bson_of_record tp)
       rhs
-    and fun_name = <:patt@loc< $lid:"bson_of_" ^ type_name$ >>
-    in
+    and fun_name = <:patt@loc< $lid:"bson_of_" ^ type_name$ >> in
 
     <:binding@loc< $fun_name$ = $fun_body$ >>
 
@@ -103,4 +151,10 @@ end
 let () =
   Pa_type_conv.add_generator
     "bson"
-    Gen_bson_of.bson_of
+    (fun tds ->
+      let loc = Ast.loc_of_ctyp tds in
+      <:str_item@loc<
+        (* $Gen_of_bson.of_bson tds$; *)
+        $Gen_bson_of.bson_of tds$
+      >>
+    )

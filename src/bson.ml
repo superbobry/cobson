@@ -205,6 +205,117 @@ module Parse = struct
 end
 
 
+module Encode = struct
+  type state = { buf : Buffer.t;
+                 add : [ `Char of char
+                       | `String of string
+                       | `Tag of (char * string)
+                       | `Patch of int ] -> unit;
+                 pos : unit -> int
+               }
+
+  let dummy = String.make 4 '\000'
+
+  let rec init () =
+    let buf = Buffer.create 16 in
+    let add = function
+      | `Char ch  -> Buffer.add_char buf ch
+      | `String s -> Buffer.add_string buf s
+      | `Tag (ch, key) ->
+        Buffer.add_char buf ch;
+        Buffer.add_string buf key;
+        Buffer.add_char buf '\000';
+      | `Patch pos ->
+        let len = Int32.of_int & (Buffer.length buf) - pos in
+        buffer_change_substring buf pos & pack_int32 len
+    and pos () = Buffer.length buf in { buf; add; pos }
+
+  and document ({ add; _ } as state) doc pos =
+    List.iter (fun (key, value) -> element state key value) doc;
+
+    add & `Char '\x00';
+    add & `Patch pos
+
+  and element ({ add; _ } as state) key = function
+    | Double d ->
+      add & `Tag ('\x01', key);
+      add & `String (pack_float d)
+    | String s ->
+      add & `Tag ('\x02', key);
+      string state s
+    | Document d ->
+      add & `Tag ('\x03', key);
+      add & `String dummy;
+      document state (Document.to_list d) (state.pos ())
+    | Array l ->
+      let len = List.length l in
+      let doc = List.combine (List.map string_of_int <| range len) l in
+      let ()  = add & `Tag ('\x04', key) in
+      let pos = state.pos () in
+      add & `String dummy;
+      document state doc pos
+    | BinaryData bd -> add & `Tag ('\x05', key); binary state bd
+    | ObjectId s    -> add & `Tag ('\x07', key); add & `String s
+    | Boolean b     ->
+      add & `Tag ('\x08', key);
+      add & `Char (if b then '\x01' else '\x00')
+    | Datetime dt   ->
+      add & `Tag ('\x09', key);
+      add & `String (pack_float & Calendar.to_unixfloat dt)
+    | Regex (pattern, opts) ->
+      add & `Tag ('\x0B', key);
+      cstring state pattern;
+      cstring state opts
+    | JSCode s -> add & `Tag ('\x0D', key); string state s
+    | Symbol s -> add & `Tag ('\x0E', key); string state s
+    | JSCodeWithScope (code, scope) ->
+      let () = add & `Tag ('\x0f', key)
+      and pos_code = state.pos ()
+      and () = add & `String dummy; string state code
+      and pos_scope = state.pos () in
+      document state (Document.to_list scope) pos_scope;
+      (* Note(Sergei): patch total jscode length. *)
+      add & `Patch pos_code
+    | Timestamp l ->
+      add & `Tag ('\x11', key);
+      add & `String (pack_int64 l)
+    | Int32 i ->
+      add & `Tag ('\x10', key);
+      add & `String (pack_int32 i)
+    | Int64 l ->
+      add & `Tag ('\x12', key);
+      add & `String (pack_int64 l)
+    | Minkey  -> add & `Tag ('\xFF', key)
+    | Maxkey  -> add & `Tag ('\x7F', key)
+    | Null    -> add & `Tag ('\x0A', key)
+
+  and string state s =
+    let len = Int32.of_int & String.length s + 1 in
+    state.add & `String (pack_int32 len);
+    cstring state s
+
+  and cstring state s =
+    state.add & `String s;
+    state.add & `Char '\x00'
+
+  and binary state b =
+    (* think, that i should patch length here too *)
+    let (kind, data) = subtype b in
+    let len = Int32.of_int & String.length data in
+    state.add & `String (pack_int32 len);
+    state.add & `Char kind;
+    state.add & `String data
+
+  and subtype = function
+    | Generic data -> ('\x00', data)
+    | Function data -> ('\x01', data)
+    | GenericOld data -> ('\x02', data)
+    | UUID data -> ('\x03', data)
+    | MD5 data -> ('\x05', data)
+    | UserDefined data -> ('\x80', data)
+end
+
+
 let of_stream bytes =
   let result =
     try
@@ -212,77 +323,18 @@ let of_stream bytes =
     with S.Failure ->
       bson_error "malformed bson data"
   in match S.peek bytes with
-    | Some c ->
-      bson_error "data after trailing null byte! %c" c
+    | Some _ ->
+      bson_error "data after trailing null byte! %S"
+        (Stream.to_string bytes)
     | None   -> result
 
 let of_string = S.of_string >> of_stream
 
-(* TODO(Sergei): clean this up! *)
-let to_buffer document =
-  let buf = Buffer.create 16 in
-  let addc = Buffer.add_char buf in
-  let adds = Buffer.add_string buf in
-  let curpos () = Buffer.length buf in
-  let dummy = "\000\000\000\000" in
-  let patch_length pos =
-    let len = Int32.of_int & (Buffer.length buf) - pos in
-    buffer_change_substring buf pos & pack_int32 len
-  in
-  let rec encode_document doc pos = match doc with
-    | (key, element)::tail ->
-      encode_element element (fun chr -> addc chr; encode_cstring key);
-      encode_document tail pos
-    | _ -> addc '\x00'; patch_length pos
-  and encode_element el addp = match el with
-    | Double d -> addp '\x01'; adds <| pack_float d
-    | String s -> addp '\x02'; encode_string s
-    | Document d -> let () = addp '\x03' in
-                    let pos = curpos () in
-                    adds dummy; encode_document (Document.to_list d) pos
-    | Array l -> let len = List.length l in
-                 let d = List.combine (List.map string_of_int <| range len) l in
-                 let () = addp '\x04' in
-                 let pos = curpos () in
-                 adds dummy; encode_document d pos
-    | BinaryData bd -> addp '\x05'; encode_binary bd
-    | ObjectId s -> addp '\x07'; adds s
-    | Boolean b -> addp '\x08'; addc (if b then '\x01' else '\x00')
-    | Datetime dt -> addp '\x09'; adds & pack_float & Calendar.to_unixfloat dt
-    | Null -> addp '\x0A'
-    | Regex (first, sec) -> addp '\x0B'; encode_cstring first; encode_cstring sec
-    | JSCode s -> addp '\x0D'; encode_string s
-    | Symbol s -> addp '\x0E'; encode_string s
-    | JSCodeWithScope (s, d) -> let () = addp '\x0f' in
-                                let pos_js = curpos () in
-                                let () = adds dummy; encode_string s in
-                                let pos_d = curpos () in
-                                encode_document (Document.to_list d) pos_d;
-                                patch_length pos_js
-    | Int32 i -> addp '\x10'; adds <| pack_int32 i
-    | Timestamp l -> addp '\x11'; adds <| pack_int64 l
-    | Int64 l -> addp '\x12'; adds <| pack_int64 l
-    | Minkey -> addp '\xFF'
-    | Maxkey -> addp '\x7F'
-  and encode_string s =
-    (* length with trailing null byte *)
-    let len = Int32.add 1l & str_length_int32 s in
-    adds & pack_int32 len; encode_cstring s
-  and encode_cstring s = adds s; addc '\x00'
-  and encode_binary bd =
-    (* think, that i should patch length here too *)
-    let (c, st) = encode_subtype bd in
-    let len = str_length_int32 st in
-    adds <| pack_int32 len; addc c; adds st
-  and encode_subtype bd = match bd with
-    | Generic st -> ('\x00', st)
-    | Function st -> ('\x01', st)
-    | GenericOld st -> ('\x02', st)
-    | UUID st -> ('\x03', st)
-    | MD5 st -> ('\x05', st)
-    | UserDefined st -> ('\x80', st)
-  in
-  let () = adds dummy; encode_document (Document.to_list document) 0 in
+let to_buffer doc =
+  let open Encode in
+  let ({ add; buf; _ } as state) = init () in
+  add & `String dummy;
+  document state (Document.to_list doc) 0;
   buf
 
 let to_string = to_buffer >> Buffer.contents
