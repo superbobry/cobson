@@ -18,12 +18,48 @@ end
 
 
 module Gen_of_bson = struct
+  let mk_type_of_bson_simple loc patts =
+    let unexpected = <:match_case@loc< _ -> 
+      failwith ("Unexpected BSON encountered: " ^ Bson.Show.element e) >>
+    in
+
+    <:expr@loc< fun e -> 
+      match e with [ $list:(patts @ [unexpected])$ ] 
+    >>
+
+  let mk_type_of_bson_single loc patt = mk_type_of_bson_simple loc [patt]
+
+  let rec type_of_bson = function
+    | <:ctyp@loc< string >> ->
+      mk_type_of_bson_single loc <:match_case@loc< Bson.String s -> s >>
+    | <:ctyp@loc< float >> ->
+      mk_type_of_bson_single loc <:match_case@loc< Bson.Double f -> f >>
+    | <:ctyp@loc< int32 >> ->
+      mk_type_of_bson_single loc <:match_case@loc< Bson.Int32 v -> v >>
+    | <:ctyp@loc< int64 >> ->
+      mk_type_of_bson_single loc <:match_case@loc< Bson.Int64 v -> v >>
+    | <:ctyp@loc< bool >> ->
+      mk_type_of_bson_single loc <:match_case@loc< Bson.Boolean b -> b >>
+    | <:ctyp@loc< list $tp$ >>
+    | <:ctyp@loc< array $tp$ >> 
+    | <:ctyp@loc< option $tp$ >> -> failwith "not implemented."
+    | ty -> Gen.unknown_type ty "type_of_bson"
+
   let record_of_bson tp =
+    let aux loc (name, field_tp) =
+      let tp = type_of_bson field_tp in
+      <:rec_binding@loc< 
+        $lid:name$ = $tp$ (Bson.Document.find $str:name$ bson) 
+      >>
+    in
+
     let loc = Ast.loc_of_ctyp tp in
     let fields = Inspect.fields tp in
-    let fun_args = [] in
-    let fun_body = <:expr@loc< () >> in
-    <:expr@loc< fun [ { $list:fun_args$ } -> $fun_body$ ] >>
+    let bindings = List.map fields ~f:(aux loc) in
+
+    <:expr@loc< 
+      fun [ s -> let bson = Bson.of_string s in { $list:bindings$ } ] 
+    >>
 
   let td_of_bson loc type_name tps rhs =
     let unsupported = (fun _ _ -> raise_unsupported ()) in
@@ -154,7 +190,7 @@ let () =
     (fun tds ->
       let loc = Ast.loc_of_ctyp tds in
       <:str_item@loc<
-        (* $Gen_of_bson.of_bson tds$; *)
+        $Gen_of_bson.of_bson tds$;
         $Gen_bson_of.bson_of tds$
       >>
     )

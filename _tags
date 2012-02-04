@@ -1,10 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 334683b81f24857aca4f60cda0e87cea)
-# Library pa_bson
-"syntax": include
-<syntax/*.ml{,i}>: pkg_type-conv
-<syntax/*.ml{,i}>: pkg_camlp4.quotations
-<syntax/*.ml{,i}>: pkg_camlp4.lib
+# DO NOT EDIT (digest: 70eaa2de2d2519fc14025c303228f3b2)
 # Library cobson
 "src": include
 <src/cobson.{cma,cmxa}>: oasis_library_cobson_byte
@@ -14,6 +9,15 @@
 <src/*.ml{,i}>: pkg_camlp4
 <src/*.ml{,i}>: pkg_calendar
 <src/*.ml{,i}>: pkg_binary
+# Library pa_bson
+"syntax": include
+<syntax/*.ml{,i}>: use_cobson
+<syntax/*.ml{,i}>: pkg_type-conv
+<syntax/*.ml{,i}>: pkg_camlp4.quotations
+<syntax/*.ml{,i}>: pkg_camlp4.lib
+<syntax/*.ml{,i}>: pkg_camlp4
+<syntax/*.ml{,i}>: pkg_calendar
+<syntax/*.ml{,i}>: pkg_binary
 # Executable test
 <tests/tests.{native,byte}>: oasis_executable_test_byte
 <tests/*.ml{,i}>: oasis_executable_test_byte
@@ -26,16 +30,16 @@
 <tests/*.ml{,i}>: pkg_calendar
 <tests/*.ml{,i}>: pkg_binary
 # Executable hello
-<examples/world.{native,byte}>: use_cobson
 <examples/world.{native,byte}>: use_pa_bson
+<examples/world.{native,byte}>: use_cobson
 <examples/world.{native,byte}>: pkg_type-conv
 <examples/world.{native,byte}>: pkg_camlp4.quotations
 <examples/world.{native,byte}>: pkg_camlp4.lib
 <examples/world.{native,byte}>: pkg_camlp4
 <examples/world.{native,byte}>: pkg_calendar
 <examples/world.{native,byte}>: pkg_binary
-<examples/*.ml{,i}>: use_cobson
 <examples/*.ml{,i}>: use_pa_bson
+<examples/*.ml{,i}>: use_cobson
 <examples/*.ml{,i}>: pkg_type-conv
 <examples/*.ml{,i}>: pkg_camlp4.quotations
 <examples/*.ml{,i}>: pkg_camlp4.lib
