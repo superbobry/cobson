@@ -3,6 +3,7 @@
 open CalendarLib
 
 exception Bson_error of string
+val bson_error : ('a, unit, string, 'b) format4 -> 'a
 
 type cstring = string
 

@@ -18,8 +18,8 @@ end
 
 module Gen_of_bson = struct
   let mk_type_of_bson loc patt =
-    let unexpected = <:match_case@loc< _ -> 
-      failwith ("Unexpected BSON encountered: " ^ Bson.Show.element e) >>
+    let unexpected = <:match_case@loc< e -> 
+      Bson.bson_error "Unexpected BSON encountered: %s" (Bson.Show.element e) >>
     in
 
     <:expr@loc< fun e -> match e with [ $list:([patt; unexpected])$ ] >>
@@ -48,9 +48,13 @@ module Gen_of_bson = struct
 
   let record_of_bson tp =
     let aux loc (name, field_tp) =
-      let tp = type_of_bson field_tp in
-      let v  = <:expr@loc< Bson.Document.find $str:name$ __bson >> in
-      <:rec_binding@loc< $lid:name$ = $tp$ $v$ >>
+      let field_v = <:expr@loc< 
+        try
+          Bson.Document.find $str:name$ __bson 
+        with [ Not_found -> Bson.bson_error "Missing: %S" $str:name$ ] >>
+      in 
+      
+      <:rec_binding@loc< $lid:name$ = $type_of_bson field_tp$ $field_v$ >>
     in
 
     let loc = Ast.loc_of_ctyp tp in
