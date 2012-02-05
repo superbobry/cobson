@@ -6,6 +6,7 @@ module Gen = Pa_type_conv.Gen
 let raise_unsupported () =
   failwith "Unsupported use of bson (you can only use it on records)."
 
+
 module Inspect = struct
   let field = function
     | <:ctyp@loc< $lid:name$ : mutable $field_ty$ >>
@@ -23,6 +24,13 @@ module Gen_of_bson = struct
     in
 
     <:expr@loc< fun e -> match e with [ $list:([patt; unexpected])$ ] >>
+
+  let handle_missing_field name = function
+    | <:ctyp@loc< option $tp$ >> ->
+      <:expr@loc< None >>
+    | tp -> 
+      let loc = Ast.loc_of_ctyp tp in
+      <:expr@loc< Bson.bson_error "Missing: %S" $str:name$ >>
 
   let rec type_of_bson = function
     | <:ctyp@loc< string >> ->
@@ -43,25 +51,27 @@ module Gen_of_bson = struct
       mk_type_of_bson loc <:match_case@loc<
         Bson.Array l -> Array.of_list (List.map $type_of_bson tp$ l)
       >>
-    | <:ctyp@loc< option $tp$ >> -> failwith "not implemented."
-    | ty -> Gen.unknown_type ty "type_of_bson"
+    | <:ctyp@loc< option $tp$ >> -> 
+      <:expr@loc< fun e -> Some ($type_of_bson tp$ e) >>
+    | tp -> Gen.unknown_type tp "type_of_bson"
 
   let record_of_bson tp =
-    let aux loc (name, field_tp) =
-      let field_v = <:expr@loc< 
-        try
-          Bson.Document.find $str:name$ __bson 
-        with [ Not_found -> Bson.bson_error "Missing: %S" $str:name$ ] >>
-      in 
-      
-      <:rec_binding@loc< $lid:name$ = $type_of_bson field_tp$ $field_v$ >>
+    let loc  = Ast.loc_of_ctyp tp in 
+    let bson = Gen.gensym ~prefix:"bson" () in
+
+    let aux (name, field_tp) =
+      <:rec_binding@loc< $lid:name$ = 
+        try 
+          let f = $type_of_bson field_tp$ in 
+          f (Bson.Document.find $str:name$ $lid:bson$)
+        with 
+          [ Not_found -> $handle_missing_field name field_tp$ ]
+      >>
     in
 
-    let loc = Ast.loc_of_ctyp tp in
-    let bindings = List.map ~f:(aux loc) (Inspect.fields tp) in
-
+    let bindings = List.map ~f:aux (Inspect.fields tp) in
     <:expr@loc< 
-      fun [ s -> let __bson = Bson.of_string s in { $list:bindings$ } ] 
+      fun [ s -> let $lid:bson$ = Bson.of_string s in { $list:bindings$ } ] 
     >>
 
   let td_of_bson loc type_name tps rhs =
@@ -127,7 +137,7 @@ module Gen_bson_of = struct
         fun [ Some v -> $bson_of_type tp$ v
             | None   -> Bson.Build.null ]
       >>
-    | ty -> Gen.unknown_type ty "bson_of_type"
+    | tp -> Gen.unknown_type tp "bson_of_type"
 
   let bson_of_record tp =
     let aux loc (name, field_tp) =

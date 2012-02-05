@@ -2,12 +2,16 @@
 
 open Printf
 
-type t = { hello : string
-		 ; world : int32 list
-		 } with bson
+type t = { hello : string option } with bson
 
-let s = bson_of_t { hello = "world"; world = [0l] } in
+let s = bson_of_t { hello = Some "world" } in
+
+(* a) make sure we can parse the encoded structure. *)
 printf "%S\n" s;
 printf "%S\n" (Bson.Show.document (Bson.of_string s));
-printf "hello = %S\n" ((t_of_bson s).hello);
-printf "world = %li\n" (List.hd (t_of_bson s).world)
+
+(* b) and that 'hello' is properly coerced. *)
+match t_of_bson s with
+  | { hello = Some hello } ->
+	printf "hello = %S\n" hello;
+  | _ -> printf "oops?"
