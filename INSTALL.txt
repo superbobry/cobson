@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 4d664ed75f810264d1065b2be35c7510) *)
+(* DO NOT EDIT (digest: 6c18a0979a39502407ecc62e590ba6c0) *)
 This is the INSTALL file for the cobson distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -11,9 +11,9 @@ Dependencies
 In order to compile this package, you will need:
 * ocaml
 * findlib
+* type-conv (>= 3.0.3) for library pa_bson
 * binary for library cobson, executable test
 * calendar for library cobson, executable test
-* type-conv (>= 3.0.3) for library pa_bson
 * kaputt for executable test
 
 Installing

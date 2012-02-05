@@ -1,5 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: 70eaa2de2d2519fc14025c303228f3b2)
+# DO NOT EDIT (digest: 7df02b3f6a78dff093e198181783addb)
+# Library pa_bson
+"syntax": include
+<syntax/*.ml{,i}>: pkg_type-conv
+<syntax/*.ml{,i}>: pkg_camlp4.quotations
+<syntax/*.ml{,i}>: pkg_camlp4.lib
 # Library cobson
 "src": include
 <src/cobson.{cma,cmxa}>: oasis_library_cobson_byte
@@ -9,15 +14,23 @@
 <src/*.ml{,i}>: pkg_camlp4
 <src/*.ml{,i}>: pkg_calendar
 <src/*.ml{,i}>: pkg_binary
-# Library pa_bson
-"syntax": include
-<syntax/*.ml{,i}>: use_cobson
-<syntax/*.ml{,i}>: pkg_type-conv
-<syntax/*.ml{,i}>: pkg_camlp4.quotations
-<syntax/*.ml{,i}>: pkg_camlp4.lib
-<syntax/*.ml{,i}>: pkg_camlp4
-<syntax/*.ml{,i}>: pkg_calendar
-<syntax/*.ml{,i}>: pkg_binary
+# Executable examples
+<examples/main.{native,byte}>: use_cobson
+<examples/main.{native,byte}>: use_pa_bson
+<examples/main.{native,byte}>: pkg_type-conv
+<examples/main.{native,byte}>: pkg_camlp4.quotations
+<examples/main.{native,byte}>: pkg_camlp4.lib
+<examples/main.{native,byte}>: pkg_camlp4
+<examples/main.{native,byte}>: pkg_calendar
+<examples/main.{native,byte}>: pkg_binary
+<examples/*.ml{,i}>: use_cobson
+<examples/*.ml{,i}>: use_pa_bson
+<examples/*.ml{,i}>: pkg_type-conv
+<examples/*.ml{,i}>: pkg_camlp4.quotations
+<examples/*.ml{,i}>: pkg_camlp4.lib
+<examples/*.ml{,i}>: pkg_camlp4
+<examples/*.ml{,i}>: pkg_calendar
+<examples/*.ml{,i}>: pkg_binary
 # Executable test
 <tests/tests.{native,byte}>: oasis_executable_test_byte
 <tests/*.ml{,i}>: oasis_executable_test_byte
@@ -29,23 +42,6 @@
 <tests/*.ml{,i}>: pkg_kaputt
 <tests/*.ml{,i}>: pkg_calendar
 <tests/*.ml{,i}>: pkg_binary
-# Executable hello
-<examples/world.{native,byte}>: use_pa_bson
-<examples/world.{native,byte}>: use_cobson
-<examples/world.{native,byte}>: pkg_type-conv
-<examples/world.{native,byte}>: pkg_camlp4.quotations
-<examples/world.{native,byte}>: pkg_camlp4.lib
-<examples/world.{native,byte}>: pkg_camlp4
-<examples/world.{native,byte}>: pkg_calendar
-<examples/world.{native,byte}>: pkg_binary
-<examples/*.ml{,i}>: use_pa_bson
-<examples/*.ml{,i}>: use_cobson
-<examples/*.ml{,i}>: pkg_type-conv
-<examples/*.ml{,i}>: pkg_camlp4.quotations
-<examples/*.ml{,i}>: pkg_camlp4.lib
-<examples/*.ml{,i}>: pkg_camlp4
-<examples/*.ml{,i}>: pkg_calendar
-<examples/*.ml{,i}>: pkg_binary
 # OASIS_STOP
 "src/bson.ml": syntax_camlp4o
 <syntax/pa_bson.ml>: syntax_camlp4o

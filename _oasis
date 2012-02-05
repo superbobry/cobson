@@ -44,9 +44,9 @@ Executable test
   NativeOpt:       -w @a -g
   ByteOpt:         -w @a -g
 
-Executable hello
+Executable examples
   Path:            examples
-  MainIs:          world.ml
+  MainIs:          main.ml
   Install:         false
   CompiledObject:  best
   BuildDepends:    cobson, cobson.syntax

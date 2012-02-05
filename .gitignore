@@ -3,3 +3,5 @@ setup.data
 setup.log
 src/config.*
 *.ba*
+*.native
+*.byte

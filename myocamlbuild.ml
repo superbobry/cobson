@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 3f13b8e47edabf2533d0d1ed24ed9379) *)
+(* DO NOT EDIT (digest: 3c53ee60e8f4e5461dc71c018cdea8b3) *)
 module OASISGettext = struct
 # 21 "/tmp/packerbuild-1000/ocaml-oasis/ocaml-oasis/src/oasis-0.2.0/src/oasis/OASISGettext.ml"
   
@@ -452,7 +452,7 @@ open Ocamlbuild_plugin;;
 let package_default =
   {
      MyOCamlbuildBase.lib_ocaml =
-       [("src/cobson", ["src"]); ("syntax/pa_bson", ["syntax"])];
+       [("syntax/pa_bson", ["syntax"]); ("src/cobson", ["src"])];
      lib_c = [];
      flags =
        [

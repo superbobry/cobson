@@ -53,6 +53,10 @@ module Gen_of_bson = struct
       >>
     | <:ctyp@loc< option $tp$ >> -> 
       <:expr@loc< fun e -> Some ($type_of_bson tp$ e) >>
+    | <:ctyp@loc< $lid:tp$ >> -> 
+      mk_type_of_bson loc <:match_case@loc<
+        Bson.Document d -> $lid:tp ^ "_of_bson"$ d
+      >>
     | tp -> Gen.unknown_type tp "type_of_bson"
 
   let record_of_bson tp =
@@ -70,9 +74,7 @@ module Gen_of_bson = struct
     in
 
     let bindings = List.map ~f:aux (Inspect.fields tp) in
-    <:expr@loc< 
-      fun [ s -> let $lid:bson$ = Bson.of_string s in { $list:bindings$ } ] 
-    >>
+    <:expr@loc< fun [ $lid:bson$ -> { $list:bindings$ } ] >>
 
   let td_of_bson loc type_name tps rhs =
     let unsupported = (fun _ _ -> raise_unsupported ()) in
@@ -137,6 +139,9 @@ module Gen_bson_of = struct
         fun [ Some v -> $bson_of_type tp$ v
             | None   -> Bson.Build.null ]
       >>
+    | <:ctyp@loc< $lid:tp$ >> -> 
+      <:expr@loc< fun e -> Bson.Build.document ($lid:"bson_of_" ^ tp$ e) 
+    >>
     | tp -> Gen.unknown_type tp "bson_of_type"
 
   let bson_of_record tp =
@@ -154,8 +159,7 @@ module Gen_bson_of = struct
     in
 
     <:expr@loc<
-      fun { $list:fun_args$ } ->
-        Bson.to_string (Bson.Document.of_list $fun_body$)
+      fun { $list:fun_args$ } -> Bson.Document.of_list $fun_body$
     >>
 
   (* Generate code from type definition. *)
